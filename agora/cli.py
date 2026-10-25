@@ -142,6 +142,16 @@ def cmd_judge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_analyze(args: argparse.Namespace) -> int:
+    from .analysis import load_rows, write_outputs
+
+    prefer = dict(item.split("=", 1) for item in (args.prefer or []))
+    rows = load_rows([Path(r) for r in args.runs], exclude=args.exclude or [], prefer=prefer)
+    write_outputs(rows, Path(args.out))
+    print(f"{len(rows)} games -> {args.out}/games.csv, {args.out}/report.md")
+    return 0
+
+
 def main(argv: List[str] = None) -> int:
     parser = argparse.ArgumentParser(prog="agora")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -171,6 +181,12 @@ def main(argv: List[str] = None) -> int:
     judge.add_argument("--llm", required=True, help="LLM YAML for the judge model")
     judge.add_argument("--overwrite", action="store_true")
     judge.set_defaults(func=cmd_judge)
+    analyze = sub.add_parser("analyze", help="aggregate summary.json files into games.csv + report.md")
+    analyze.add_argument("runs", nargs="+", help="run roots (e.g. pulled Modal tags)")
+    analyze.add_argument("--out", default="analysis")
+    analyze.add_argument("--exclude", action="append", help="model names to leave out (repeatable)")
+    analyze.add_argument("--prefer", action="append", help="MODEL=TAG: use only this tag for MODEL (repeatable)")
+    analyze.set_defaults(func=cmd_analyze)
     args = parser.parse_args(argv)
     return args.func(args)
 
