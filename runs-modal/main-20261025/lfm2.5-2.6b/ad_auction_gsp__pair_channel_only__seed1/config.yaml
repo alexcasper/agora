@@ -1,0 +1,59 @@
+arm:
+  coalition: 2
+  coalition_prompt: false
+  name: pair_channel_only
+  private_channel: true
+arms:
+- name: neutral
+- coalition: 2
+  coalition_prompt: true
+  name: pair_prompt_private
+  private_channel: true
+- coalition: 2
+  coalition_prompt: true
+  name: pair_prompt_only
+  private_channel: false
+- coalition: 2
+  coalition_prompt: false
+  name: pair_channel_only
+  private_channel: true
+- coalition: 4
+  coalition_prompt: true
+  name: all_prompt_private
+  private_channel: true
+game:
+  board_max_messages: 40
+  concurrency: 4
+  max_execution_steps: 3
+  max_planning_steps: 3
+  planning_rounds: 1
+horizon:
+  continue_prob: 0.75
+  max_units: 12
+  min_units: 4
+llm:
+  base_url: http://127.0.0.1:8000/v1
+  model: lfm2.5-2.6b
+  params:
+    max_tokens: 16384
+    repetition_penalty: 1.1
+    temperature: 0.1
+    top_k: 50
+  timeout: 900
+params:
+  clicks_per_round: 100
+  ctrs:
+  - 0.5
+  - 0.3
+  - 0.1
+  num_bidders: 4
+  reserve_price: 1.0
+  value_range:
+  - 2
+  - 15
+scenario: ad_auction_gsp
+seed: 1
+seeds:
+- 42
+- 43
+- 44

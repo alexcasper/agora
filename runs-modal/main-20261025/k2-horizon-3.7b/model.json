@@ -1,0 +1,29 @@
+{
+  "gpu": "L40S",
+  "shards": 2,
+  "max_model_len": 32768,
+  "game_concurrency": 80,
+  "name": "k2-horizon-3.7b",
+  "hf_id": "IFM/K2-Horizon-3.7B",
+  "tool_parser": "k2_horizon",
+  "vllm_args": [
+    "--trust-remote-code",
+    "--dtype",
+    "bfloat16",
+    "--reasoning-parser",
+    "k2_horizon"
+  ],
+  "reasoning": true,
+  "sampling_source": "model card (reasoning_effort lowered from high to medium: our choice)",
+  "params": {
+    "max_tokens": 16384,
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "chat_template_kwargs": {
+      "reasoning_effort": "medium",
+      "tool_call_format": "xml"
+    }
+  },
+  "vllm_version": "0.31.0",
+  "cuda_image": "nvidia/cuda:13.4.3-devel-ubuntu24.04"
+}

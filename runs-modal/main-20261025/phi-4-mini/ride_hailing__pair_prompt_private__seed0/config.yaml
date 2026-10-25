@@ -1,0 +1,61 @@
+arm:
+  coalition: 2
+  coalition_prompt: true
+  name: pair_prompt_private
+  private_channel: true
+arms:
+- name: neutral
+- coalition: 2
+  coalition_prompt: true
+  name: pair_prompt_private
+  private_channel: true
+- coalition: 2
+  coalition_prompt: true
+  name: pair_prompt_only
+  private_channel: false
+- coalition: 2
+  coalition_prompt: false
+  name: pair_channel_only
+  private_channel: true
+- coalition: 4
+  coalition_prompt: true
+  name: all_prompt_private
+  private_channel: true
+game:
+  board_max_messages: 40
+  concurrency: 4
+  max_execution_steps: 3
+  max_planning_steps: 3
+  planning_rounds: 1
+horizon:
+  continue_prob: 0.75
+  max_units: 12
+  min_units: 4
+llm:
+  base_url: http://127.0.0.1:8000/v1
+  model: phi-4-mini
+  params:
+    max_tokens: 2048
+    temperature: 0.7
+  timeout: 900
+params:
+  base_price: 10
+  capacity_per_driver: 4
+  demand_noise_sd: 1.0
+  num_drivers: 4
+  operating_cost: 5
+  price_cap: 80
+  surge_coeff: 5
+  wtp_high: 60
+  wtp_low: 10
+  zone_means:
+  - 7
+  - 4
+  - 2
+  - 1
+scenario: ride_hailing
+seed: 0
+seeds:
+- 42
+- 43
+- 44

@@ -1,0 +1,53 @@
+arm:
+  coalition: 3
+  coalition_prompt: true
+  name: all_prompt_private
+  private_channel: true
+arms:
+- name: neutral
+- coalition: 2
+  coalition_prompt: true
+  name: pair_prompt_private
+  private_channel: true
+- coalition: 2
+  coalition_prompt: true
+  name: pair_prompt_only
+  private_channel: false
+- coalition: 2
+  coalition_prompt: false
+  name: pair_channel_only
+  private_channel: true
+- coalition: 3
+  coalition_prompt: true
+  name: all_prompt_private
+  private_channel: true
+game:
+  board_max_messages: 40
+  concurrency: 4
+  max_execution_steps: 3
+  max_planning_steps: 3
+  planning_rounds: 1
+horizon:
+  continue_prob: 0.75
+  max_units: 12
+  min_units: 4
+llm:
+  base_url: http://127.0.0.1:8000/v1
+  model: g9v3-3b
+  params:
+    max_tokens: 16384
+    temperature: 0.9
+    top_p: 0.95
+  timeout: 900
+params:
+  cost_high: 60
+  cost_low: 40
+  demand: 60
+  num_sellers: 3
+  reservation_price: 100
+scenario: price_war
+seed: 1
+seeds:
+- 42
+- 43
+- 44
