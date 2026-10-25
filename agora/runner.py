@@ -300,13 +300,19 @@ class Runner:
             if not response.tool_calls:
                 if phase == "planning":
                     break
-                messages.append({"role": "assistant", "content": response.content or ""})
+                assistant = {"role": "assistant", "content": response.content or ""}
+                if getattr(self.client, "echo_reasoning", False):
+                    assistant["reasoning_content"] = response.reasoning or ""
+                messages.append(assistant)
                 messages.append({"role": "user", "content": f"No action was taken. You must call one of: {', '.join(tool_names)}."})
                 continue
+            assistant: Dict[str, Any] = {"role": "assistant", "content": response.content or ""}
+            if getattr(self.client, "echo_reasoning", False):
+                # Some chat templates (K2-Horizon) reject a prior assistant turn without its reasoning.
+                assistant["reasoning_content"] = response.reasoning or ""
             messages.append(
                 {
-                    "role": "assistant",
-                    "content": response.content or "",
+                    **assistant,
                     "tool_calls": [
                         {"id": c.id, "type": "function", "function": {"name": c.name, "arguments": json.dumps(c.arguments)}}
                         for c in response.tool_calls

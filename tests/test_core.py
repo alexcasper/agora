@@ -150,3 +150,28 @@ def test_positional_and_object_recovery_with_schema():
     assert got('drive_in_zone\n{\n "name": "drive_in_zone", "function": {"description": "x"}}') == []
     assert got("I could charge the battery or hold.") == []
     assert got("charge the battery") == []
+
+
+def test_echo_reasoning_only_when_enabled():
+    from agora.llm import ChatResponse, ScriptedClient
+
+    seen = []
+
+    def policy(messages, tools):
+        seen.append(messages)
+        if "EXECUTION" in messages[1]["content"]:
+            bad = len(messages) == 2  # first try: invalid price, then a valid retry
+            return ChatResponse("", "thinking...", [call("set_price", price=500 if bad else 60)], "tool_calls")
+        return respond()
+
+    for echo in (False, True):
+        seen.clear()
+        client = ScriptedClient(policy)
+        client.echo_reasoning = echo
+        env = make_env("price_war", {"costs": [40, 45.5, 52.8]}, seed=1)
+        Runner(env, client, Arm(), Horizon(1, 0.0, 1), concurrency=1).run()
+        retry = [m for m in seen if len(m) > 2][0]
+        prior = [x for x in retry if x["role"] == "assistant"][0]
+        assert ("reasoning_content" in prior) == echo
+        if echo:
+            assert prior["reasoning_content"] == "thinking..."

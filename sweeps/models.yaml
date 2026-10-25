@@ -55,6 +55,9 @@ models:
     vllm_args: [--trust-remote-code, --dtype, bfloat16, --reasoning-parser, k2_horizon]
     # Card recommends reasoning_effort=high with >=32k output tokens; medium + 16k keeps games tractable.
     reasoning: true
+    # Its chat template rejects prior assistant turns without their reasoning (HTTP 400 on
+    # every follow-up step in a turn), so this model alone gets its reasoning echoed back.
+    echo_reasoning: true
     sampling_source: "model card (reasoning_effort lowered from high to medium: our choice)"
     params: {max_tokens: 16384, temperature: 1.0, top_p: 0.95, chat_template_kwargs: {reasoning_effort: medium, tool_call_format: xml}}
 

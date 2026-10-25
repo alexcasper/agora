@@ -57,7 +57,15 @@ played with.
    code-style tool calls"). Use the r2 tag for Phi-4-mini. Before final analysis,
    replay each reasoning model's no-call replies through the current parser
    and rerun any model where it would recover a non-trivial share.
-6. **Related models.** G9v3-3B shares MiniCPM5's tokenizer, chat template and
+6. **K2-Horizon's first main-run attempt is invalid.** Its chat template rejects
+   a prior assistant turn that lacks its reasoning, so in `main-20261025` every
+   follow-up step within a turn failed with HTTP 400 (1,939 errors): agents got
+   one reply per turn and could not retry a failed commit. Its containers were
+   stopped; K2 alone now runs with `echo_reasoning: true` (prior reasoning sent
+   back as `reasoning_content`). Other models never receive their earlier
+   reasoning within a turn. K2 was also very slow on L40S with ~75 games per
+   GPU (mean 12 min per response).
+7. **Related models.** G9v3-3B shares MiniCPM5's tokenizer, chat template and
    layer widths (52 vs 42 layers) and is probably a MiniCPM5 derivative. Do
    not count the two as independent observations of "small models".
 

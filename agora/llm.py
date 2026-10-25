@@ -205,6 +205,7 @@ class OpenAICompatibleClient:
         timeout: float = 600.0,
         max_retries: int = 3,
         params: Optional[Dict[str, Any]] = None,
+        echo_reasoning: bool = False,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -212,6 +213,8 @@ class OpenAICompatibleClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.params = dict(params or {})
+        # Send each prior assistant turn's reasoning back as `reasoning_content`.
+        self.echo_reasoning = echo_reasoning
 
     def chat(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> ChatResponse:
         body: Dict[str, Any] = {"model": self.model, "messages": messages, **self.params}
@@ -298,4 +301,5 @@ def build_client(cfg: Dict[str, Any]) -> OpenAICompatibleClient:
         timeout=float(cfg.get("timeout", 600)),
         max_retries=int(cfg.get("max_retries", 3)),
         params=cfg.get("params"),
+        echo_reasoning=bool(cfg.get("echo_reasoning", False)),
     )

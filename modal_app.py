@@ -104,6 +104,7 @@ def sweep_model(model: dict, sweep: dict, tag: str, shard: int = 0, shards: int 
             "model": model["name"],
             "timeout": 900,
             "params": model.get("params", {"max_tokens": 2048, "temperature": 0.7}),
+            "echo_reasoning": bool(model.get("echo_reasoning", False)),
         }
         out = Path("/runs") / tag / model["name"]
         out.mkdir(parents=True, exist_ok=True)
