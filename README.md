@@ -42,7 +42,7 @@ uv venv && uv pip install -e '.[dev]' && .venv/bin/pytest -q
 
 agora benchmarks --config configs/supply_chain.yaml --seed 42   # analytic benchmarks
 agora run configs/price_war.yaml --arm neutral --seed 42        # one config
-agora sweep sweeps/smoke.yaml --llm configs/llm/flint.yaml      # many games in parallel, resumable
+agora sweep sweeps/smoke.yaml --llm configs/llm/local-vllm.yaml      # many games in parallel, resumable
 agora judge runs/smoke --llm configs/llm/openrouter.yaml        # transcript-only LLM judge
 agora report runs/smoke                                         # TSV table incl. judge score
 ```
@@ -53,10 +53,12 @@ calls and results), `summary.json` and `config.yaml`.
 ## Modal
 
 `modal_app.py` runs one vLLM server per container and many games against it.
-Models, GPUs and shard counts live in `sweeps/models.yaml`.
+Models, GPUs, serve flags and sampling live in `sweeps/models.yaml`: Qwen3.5-4B,
+MiniCPM5-2B, G9v3-3B, K2-Horizon-3.7B, Granite-4.2-3B, Phi-4-mini, Nanbeige4.1-3B
+and LFM2.5-2.6B, all served by vLLM 0.31.0 with built-in tool parsers.
 
 ```bash
-modal run modal_app.py --sweep sweeps/smoke.yaml --only qwen3-8b
+modal run modal_app.py --sweep sweeps/smoke.yaml --only minicpm5-2b,granite-4.2-3b
 modal run modal_app.py --sweep sweeps/full.yaml --tag oct26          # all models
 modal volume get agora-runs oct26 ./runs-modal/oct26
 ```

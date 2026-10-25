@@ -23,13 +23,19 @@ from pathlib import Path
 
 import modal
 
-VLLM_VERSION = os.environ.get("AGORA_VLLM_VERSION", "0.10.1.1")
+VLLM_VERSION = os.environ.get("AGORA_VLLM_VERSION", "0.31.0")
 REMOTE_ROOT = "/root/agora"
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(f"vllm=={VLLM_VERSION}", "pyyaml>=6", "huggingface_hub[hf_transfer]")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    # Tool chat templates that ship in vLLM's repo but not its wheel (Phi-4-mini).
+    .run_commands(
+        "mkdir -p /root/templates && python -c \"import urllib.request; urllib.request.urlretrieve("
+        f"'https://raw.githubusercontent.com/vllm-project/vllm/v{VLLM_VERSION}/examples/tool_chat_template_phi4_mini.jinja', "
+        "'/root/templates/tool_chat_template_phi4_mini.jinja')\""
+    )
     .add_local_dir(".", REMOTE_ROOT, ignore=[".venv", ".git", "runs", "**/__pycache__", "*.egg-info"])
 )
 
