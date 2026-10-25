@@ -6,11 +6,14 @@
 #   gpu: Modal GPU; shards: containers per model (seeds split across them)
 #   tool_parser / vllm_args: `vllm serve` flags; params: request body (sampling, chat_template_kwargs)
 #   Sampling follows each model card's recommendation; all reasoning models think by default.
+# Reasoning models think ~2-7k tokens per response (check run 2026-10-25), so they get a
+# 16k output cap; with 2 shards and 80 games in flight a 5-seed run is bound by the
+# longest single game rather than GPU throughput.
 defaults: &defaults
   gpu: L40S
-  shards: 1
+  shards: 2
   max_model_len: 32768
-  game_concurrency: 48
+  game_concurrency: 80
 
 models:
   - name: qwen3.5-4b            # paper baseline (the Terrarium runs used it via llama.cpp)
@@ -18,14 +21,14 @@ models:
     hf_id: Qwen/Qwen3.5-4B
     tool_parser: qwen3_coder
     vllm_args: [--reasoning-parser, qwen3, --language-model-only]
-    params: {max_tokens: 8192, temperature: 0.7, top_p: 0.8}
+    params: {max_tokens: 16384, temperature: 0.7, top_p: 0.8}
 
   - name: minicpm5-2b
     <<: *defaults
     hf_id: openbmb/MiniCPM5-2B
     tool_parser: minicpm5        # XML <function name=..><param ..> calls
     vllm_args: [--reasoning-parser, qwen3]
-    params: {max_tokens: 8192, temperature: 1.0, top_p: 0.95}
+    params: {max_tokens: 16384, temperature: 1.0, top_p: 0.95}
 
   - name: g9v3-3b
     <<: *defaults
@@ -34,26 +37,27 @@ models:
     # likely a MiniCPM5 derivative, so the minicpm5 parser applies. Verify in the smoke run.
     tool_parser: minicpm5
     vllm_args: [--reasoning-parser, qwen3]
-    params: {max_tokens: 8192, temperature: 0.9, top_p: 0.95}
+    params: {max_tokens: 16384, temperature: 0.9, top_p: 0.95}
 
   - name: k2-horizon-3.7b
     <<: *defaults
     hf_id: IFM/K2-Horizon-3.7B   # custom architecture; 5.06B params on disk incl. embeddings
     tool_parser: k2_horizon
     vllm_args: [--trust-remote-code, --dtype, bfloat16, --reasoning-parser, k2_horizon]
-    # Card recommends reasoning_effort=high with >=32k output tokens; medium keeps games tractable.
-    params: {max_tokens: 12288, temperature: 1.0, top_p: 0.95, chat_template_kwargs: {reasoning_effort: medium, tool_call_format: xml}}
+    # Card recommends reasoning_effort=high with >=32k output tokens; medium + 16k keeps games tractable.
+    params: {max_tokens: 16384, temperature: 1.0, top_p: 0.95, chat_template_kwargs: {reasoning_effort: medium, tool_call_format: xml}}
 
   - name: granite-4.2-3b
     <<: *defaults
     hf_id: ibm-granite/granite-4.2-3b
     tool_parser: qwen3_coder
     vllm_args: [--dtype, bfloat16, --reasoning-parser, granite_thinking_parser]
-    params: {max_tokens: 8192, temperature: 1.0, top_p: 0.95}
+    params: {max_tokens: 16384, temperature: 1.0, top_p: 0.95}
 
   - name: phi-4-mini
     <<: *defaults
     hf_id: microsoft/Phi-4-mini-instruct   # 3.8B, Feb 2025, no thinking mode
+    shards: 1
     tool_parser: phi4_mini_json
     vllm_args: [--chat-template, /root/templates/tool_chat_template_phi4_mini.jinja]
     params: {max_tokens: 2048, temperature: 0.7}
@@ -63,11 +67,11 @@ models:
     hf_id: Nanbeige/Nanbeige4.1-3B         # Hermes-style <tool_call> JSON, <think> reasoning
     tool_parser: hermes
     vllm_args: [--reasoning-parser, qwen3]
-    params: {max_tokens: 8192, temperature: 0.6, top_p: 0.95}
+    params: {max_tokens: 16384, temperature: 0.6, top_p: 0.95}
 
   - name: lfm2.5-2.6b
     <<: *defaults
     hf_id: LiquidAI/LFM2.5-2.6B            # always reasons; Pythonic calls in <|tool_call_start|>
     tool_parser: lfm2
     vllm_args: [--reasoning-parser, deepseek_r1]
-    params: {max_tokens: 8192, temperature: 0.7}
+    params: {max_tokens: 16384, temperature: 0.7}
