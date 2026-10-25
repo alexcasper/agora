@@ -69,6 +69,11 @@ def headline(summary: Dict[str, Any]) -> Dict[str, Any]:
         "collusion_index": metrics.get("collusion_index"),
         "coalition_adv": (summary.get("coalition") or {}).get("coalition_advantage"),
         "joint_profit": summary["joint_profit_total"],
+        "sec_per_call": (summary.get("performance") or {}).get("seconds_mean"),
+        "tok_per_sec": (summary.get("performance") or {}).get("tokens_per_second_mean"),
+        "truncated_rate": (summary.get("performance") or {}).get("truncated_rate"),
+        "text_recovered_rate": (summary.get("performance") or {}).get("text_recovered_rate"),
+        "wall_seconds": (summary.get("performance") or {}).get("wall_seconds"),
     }
 
 

@@ -175,6 +175,7 @@ class Runner:
         self.env_lock = threading.Lock()
         self.log_lock = threading.Lock()
         self.counters = {"llm_calls": 0, "llm_errors": 0, "text_parsed_calls": 0, "invalid_tool_calls": 0}
+        self.call_stats: List[Dict[str, Any]] = []
         self._log_file = None
 
     # ---- logging ----------------------------------------------------- #
@@ -279,6 +280,19 @@ class Runner:
                     for c in response.tool_calls
                 ],
             }
+            usage = response.usage or {}
+            with self.log_lock:
+                self.call_stats.append(
+                    {
+                        "phase": phase,
+                        "seconds": time.time() - started,
+                        "prompt_tokens": usage.get("prompt_tokens"),
+                        "completion_tokens": usage.get("completion_tokens"),
+                        "truncated": response.finish_reason == "length",
+                        "native_calls": sum(1 for c in response.tool_calls if not c.parsed_from_text),
+                        "text_calls": sum(1 for c in response.tool_calls if c.parsed_from_text),
+                    }
+                )
             if step == 0:
                 event["system_prompt"] = messages[0]["content"]
                 event["user_prompt"] = messages[1]["content"]
@@ -319,7 +333,46 @@ class Runner:
 
     # ---- game -------------------------------------------------------- #
 
+    def performance(self, wall_seconds: float) -> Dict[str, Any]:
+        """Per-response speed and output statistics for this game."""
+        stats = self.call_stats
+
+        def pct(values: List[float], q: float) -> Optional[float]:
+            if not values:
+                return None
+            ordered = sorted(values)
+            return round(ordered[min(len(ordered) - 1, int(q * len(ordered)))], 3)
+
+        def block(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+            secs = [r["seconds"] for r in rows]
+            toks = [r["completion_tokens"] for r in rows if r["completion_tokens"] is not None]
+            timed = [(r["completion_tokens"], r["seconds"]) for r in rows if r["completion_tokens"] is not None and r["seconds"] > 0]
+            return {
+                "calls": len(rows),
+                "seconds_mean": round(sum(secs) / len(secs), 3) if secs else None,
+                "seconds_p50": pct(secs, 0.5),
+                "seconds_p95": pct(secs, 0.95),
+                "seconds_max": round(max(secs), 3) if secs else None,
+                "completion_tokens_mean": round(sum(toks) / len(toks), 1) if toks else None,
+                "completion_tokens_total": sum(toks),
+                "tokens_per_second_mean": round(sum(t / s for t, s in timed) / len(timed), 2) if timed else None,
+                "truncated_rate": round(sum(r["truncated"] for r in rows) / len(rows), 4) if rows else None,
+            }
+
+        tool_responses = sum(1 for r in stats if r["native_calls"] or r["text_calls"])
+        text_only = sum(1 for r in stats if r["text_calls"] and not r["native_calls"])
+        return {
+            "wall_seconds": round(wall_seconds, 2),
+            "prompt_tokens_total": sum(r["prompt_tokens"] or 0 for r in stats),
+            **block(stats),
+            "by_phase": {phase: block([r for r in stats if r["phase"] == phase]) for phase in ("planning", "execution")},
+            # Share of tool-using responses that only worked via agora's text recovery.
+            "text_recovered_rate": round(text_only / tool_responses, 4) if tool_responses else None,
+            "llm_error_rate": round(self.counters["llm_errors"] / (len(stats) + self.counters["llm_errors"]), 4) if stats or self.counters["llm_errors"] else None,
+        }
+
     def run(self) -> Dict[str, Any]:
+        game_started = time.time()
         if self.out_dir:
             self.out_dir.mkdir(parents=True, exist_ok=True)
             self._log_file = open(self.out_dir / "events.jsonl", "w")
@@ -346,6 +399,7 @@ class Runner:
                     "arm": self.arm.__dict__,
                     "horizon": {**self.horizon.__dict__, "units_drawn": self.units, "rounds": self.total_rounds},
                     "counters": dict(self.counters),
+                    "performance": self.performance(time.time() - game_started),
                     "coalition": self.coalition_metrics(),
                     "boards": self.boards.posts,
                 }

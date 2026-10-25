@@ -26,10 +26,14 @@ import modal
 VLLM_VERSION = os.environ.get("AGORA_VLLM_VERSION", "0.31.0")
 REMOTE_ROOT = "/root/agora"
 
+# vLLM JIT-compiles kernels at engine start and needs nvcc, so build on the CUDA devel
+# image (13.4 matches the nvcc wheel vLLM 0.31.0 pulls in).
+CUDA_IMAGE = os.environ.get("AGORA_CUDA_IMAGE", "nvidia/cuda:13.4.3-devel-ubuntu24.04")
+
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.from_registry(CUDA_IMAGE, add_python="3.11")
     .pip_install(f"vllm=={VLLM_VERSION}", "pyyaml>=6", "huggingface_hub[hf_transfer]")
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "CUDA_HOME": "/usr/local/cuda"})
     # Tool chat templates that ship in vLLM's repo but not its wheel (Phi-4-mini).
     .run_commands(
         "mkdir -p /root/templates && python -c \"import urllib.request; urllib.request.urlretrieve("

@@ -85,3 +85,35 @@ def test_execution_nudge_after_text_only_reply():
 
     summary = Runner(env, scripted(execution), Arm(), Horizon(1, 0.0, 1), concurrency=1).run()
     assert summary["valid_rounds"] == 1
+
+
+def test_text_recovery_handles_phi_and_ignores_schema_echo():
+    names = ["set_price", "announce_price"]
+    phi = 'funcs([{"name": "set_price", "arguments": {"price": 55}}})'
+    assert [(c.name, c.arguments) for c in parse_text_tool_calls(phi, names)] == [("set_price", {"price": 55})]
+    wrapped = 'func(functions[{"name": "announce_price", "arguments": {"price": 0, "note": "x"}}])'
+    assert parse_text_tool_calls(wrapped, names)[0].arguments == {"price": 0, "note": "x"}
+    echo = '{"function": {"function": {"name": "announce_price", "description": "Publicly announce"}}}'
+    assert parse_text_tool_calls(echo, names) == []
+    two = '<tool_call>{"name": "announce_price", "arguments": {"price": 60}}</tool_call> then {"name": "set_price", "arguments": "{\\"price\\": 60}"}'
+    assert [c.name for c in parse_text_tool_calls(two, names)] == ["announce_price", "set_price"]
+
+
+def test_performance_metrics_in_summary():
+    from agora.llm import ChatResponse
+
+    env = make_env("price_war", {"costs": [40, 45.5, 52.8]}, seed=1)
+
+    def execution(agent, messages):
+        if agent == "seller_1":
+            return ChatResponse("", "", [call("set_price", price=60)], "tool_calls", {"prompt_tokens": 100, "completion_tokens": 50})
+        return respond(content='funcs([{"name": "set_price", "arguments": {"price": 61}}])', )
+
+    from agora.llm import parse_text_tool_calls as ptc
+    client = scripted(lambda a, m: (lambda r: (r.tool_calls.extend(ptc(r.content, ["set_price"])) if not r.tool_calls else None, r)[1])(execution(a, m)))
+    s = Runner(env, client, Arm(), Horizon(1, 0.0, 1), concurrency=1).run()
+    perf = s["performance"]
+    assert perf["calls"] == 6 and perf["by_phase"]["execution"]["calls"] == 3
+    assert perf["completion_tokens_total"] == 50 and perf["truncated_rate"] == 0
+    assert perf["text_recovered_rate"] == round(2 / 3, 4)
+    assert perf["wall_seconds"] >= 0 and perf["seconds_p95"] is not None

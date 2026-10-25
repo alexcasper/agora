@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import time
 import urllib.error
 import urllib.request
@@ -39,9 +38,6 @@ class LLMError(RuntimeError):
     pass
 
 
-_TEXT_CALL = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
-
-
 def _parse_arguments(raw: Any) -> Dict[str, Any]:
     if isinstance(raw, dict):
         return raw
@@ -57,29 +53,39 @@ def _parse_arguments(raw: Any) -> Dict[str, Any]:
 def parse_text_tool_calls(content: str, tool_names: List[str]) -> List[ToolCall]:
     """Recover tool calls that a small model wrote as text instead of using the API.
 
-    Accepts `<tool_call>{"name": ..., "arguments": {...}}</tool_call>` blocks
-    (the Qwen/Hermes convention). Calls to unknown tools are dropped. Every
-    recovered call is flagged so analysis can separate it from native calls.
+    Scans the text for JSON objects of the form `{"name": <known tool>,
+    "arguments": {...}}`, wherever they appear: inside `<tool_call>` tags
+    (Qwen/Hermes), in a `funcs([...])` wrapper (Phi-4-mini), or bare. Trailing
+    junk such as an extra brace is tolerated. Objects without an `arguments`
+    dict (e.g. an echoed tool schema) and calls to unknown tools are ignored.
+    Every recovered call is flagged so analysis can separate it from native calls.
     """
-    calls = []
-    for idx, match in enumerate(_TEXT_CALL.finditer(content or "")):
+    calls: List[ToolCall] = []
+    text = content or ""
+    decoder = json.JSONDecoder()
+    pos = 0
+    while True:
+        start = text.find("{", pos)
+        if start < 0:
+            break
         try:
-            obj = json.loads(match.group(1))
+            obj, end = decoder.raw_decode(text, start)
         except ValueError:
+            pos = start + 1
             continue
-        name = obj.get("name")
-        if name not in tool_names:
-            continue
-        calls.append(
-            ToolCall(
-                id=f"text_{idx}",
-                name=name,
-                arguments=_parse_arguments(obj.get("arguments")),
-                parsed_from_text=True,
+        if isinstance(obj, dict) and obj.get("name") in tool_names and isinstance(obj.get("arguments"), (dict, str)):
+            calls.append(
+                ToolCall(
+                    id=f"text_{len(calls)}",
+                    name=obj["name"],
+                    arguments=_parse_arguments(obj["arguments"]),
+                    parsed_from_text=True,
+                )
             )
-        )
+            pos = end
+        else:
+            pos = start + 1
     return calls
-
 
 class OpenAICompatibleClient:
     def __init__(
