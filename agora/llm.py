@@ -8,6 +8,7 @@ dependency. `ScriptedClient` replays canned responses for tests.
 from __future__ import annotations
 
 import json
+import re
 import os
 import time
 import urllib.error
@@ -50,7 +51,7 @@ def _parse_arguments(raw: Any) -> Dict[str, Any]:
     return value if isinstance(value, dict) else {"_unparsed": raw}
 
 
-def parse_text_tool_calls(content: str, tool_names: List[str]) -> List[ToolCall]:
+def parse_text_tool_calls(content: str, tools: Any) -> List[ToolCall]:
     """Recover tool calls that a small model wrote as text instead of using the API.
 
     Scans the text for JSON objects of the form `{"name": <known tool>,
@@ -59,7 +60,12 @@ def parse_text_tool_calls(content: str, tool_names: List[str]) -> List[ToolCall]
     junk such as an extra brace is tolerated. Objects without an `arguments`
     dict (e.g. an echoed tool schema) and calls to unknown tools are ignored.
     Every recovered call is flagged so analysis can separate it from native calls.
+
+    `tools` is a list of tool names, or a dict mapping each name to its required
+    parameter names (which lets a single positional argument be recovered).
     """
+    required = dict(tools) if isinstance(tools, dict) else {name: [] for name in tools}
+    tool_names = list(required)
     calls: List[ToolCall] = []
     text = content or ""
     decoder = json.JSONDecoder()
@@ -85,6 +91,108 @@ def parse_text_tool_calls(content: str, tool_names: List[str]) -> List[ToolCall]
             pos = end
         else:
             pos = start + 1
+    return calls or _parse_code_style_calls(text, required)
+
+
+def _literal(raw: str) -> Any:
+    raw = raw.strip()
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return raw.strip("'\"")
+
+
+def _split_top_level(text: str) -> List[str]:
+    parts, depth, quote, current = [], 0, None, []
+    for ch in text:
+        if quote:
+            quote = None if ch == quote else quote
+        elif ch in "'\"":
+            quote = ch
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            parts.append("".join(current))
+            current = []
+            continue
+        current.append(ch)
+    parts.append("".join(current))
+    return [p for p in parts if p.strip()]
+
+
+def _parse_code_style_calls(text: str, required: Dict[str, List[str]]) -> List[ToolCall]:
+    """Fallback for calls written as code rather than JSON (seen from Phi-4-mini):
+
+    - `name(k=v, ...)` / `name(k: v, ...)` with an exact tool name
+    - `name {...}` / `name({...})`, using the object's `arguments` if present,
+      otherwise the object itself as the arguments
+    - `name(v)` / `name v` when the tool has exactly one required parameter
+    - a reply whose first line is just a tool name with no required parameters
+
+    Only exact tool names count, and a name merely mentioned in prose ("I will
+    use set_price") is not a call: it must be followed by `(`, `{`, a single
+    value, or stand alone on the first line.
+    """
+    calls: List[ToolCall] = []
+    if not required:
+        return calls
+    names = "|".join(re.escape(n) for n in sorted(required, key=len, reverse=True))
+    decoder = json.JSONDecoder()
+
+    def object_args(start: int) -> Optional[Dict[str, Any]]:
+        try:
+            obj, _ = decoder.raw_decode(text, start)
+        except ValueError:
+            return None
+        if not isinstance(obj, dict):
+            return None
+        if isinstance(obj.get("arguments"), dict):
+            return obj["arguments"]
+        if "function" in obj or "name" in obj or "description" in obj:
+            return None  # an echoed tool schema, not arguments
+        return obj
+
+    def single(name: str, raw: str) -> Optional[Dict[str, Any]]:
+        params = required.get(name) or []
+        return {params[0]: _literal(raw)} if len(params) == 1 and raw.strip() else None
+
+    for match in re.finditer(r"(?<![\w.])(" + names + r")\s*(\(\s*\{|\{|\(|[ \t]+(?=[-\w\"'.]))", text):
+        name, opener = match.group(1), match.group(2)
+        args: Optional[Dict[str, Any]]
+        if "{" in opener:
+            args = object_args(match.end(2) - 1)
+        elif opener.startswith("("):
+            close = text.find(")", match.end(2))
+            if close < 0:
+                continue
+            inner = text[match.end(2):close]
+            parts = _split_top_level(inner)
+            if len(parts) == 1 and not re.search(r"^\s*['\"]?\w+['\"]?\s*[=:]", parts[0]):
+                args = single(name, parts[0])
+            else:
+                args = {}
+                for part in parts:
+                    pair = re.split(r"\s*[=:]\s*", part.strip(), maxsplit=1)
+                    key = pair[0].strip("'\"")
+                    if len(pair) != 2 or not re.fullmatch(r"\w+", key):
+                        args = None
+                        break
+                    args[key] = _literal(pair[1])
+        else:
+            # `name value` at the start of a line with a numeric value, e.g. `charge 5`
+            # or `charge 10 MWh`; prose such as "charge the battery" never matches.
+            line_start = match.start() == 0 or text[match.start() - 1] == "\n"
+            token = re.match(r"-?\d+(?:\.\d+)?(?![\w.])", text[match.end(2):])
+            args = single(name, token.group(0)) if (token and line_start) else None
+        if args is not None:
+            calls.append(ToolCall(id=f"text_{len(calls)}", name=name, arguments=args, parsed_from_text=True))
+    if not calls:
+        first = text.strip().splitlines()[0].strip().strip("`.()").strip().lower() if text.strip() else ""
+        bare = {n.lower(): n for n, params in required.items() if not params}
+        if first in bare:
+            calls.append(ToolCall(id="text_0", name=bare[first], arguments={}, parsed_from_text=True))
     return calls
 
 class OpenAICompatibleClient:
@@ -122,7 +230,8 @@ class OpenAICompatibleClient:
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout) as resp:
                     payload = json.loads(resp.read())
-                return self._to_response(payload, [t["function"]["name"] for t in tools])
+                required = {t["function"]["name"]: t["function"].get("parameters", {}).get("required", []) for t in tools}
+                return self._to_response(payload, required)
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode(errors="replace")[:500]
                 last_error = LLMError(f"HTTP {exc.code}: {detail}")
@@ -135,7 +244,7 @@ class OpenAICompatibleClient:
         raise LLMError(f"chat request failed after {self.max_retries} attempts: {last_error}")
 
     @staticmethod
-    def _to_response(payload: Dict[str, Any], tool_names: List[str]) -> ChatResponse:
+    def _to_response(payload: Dict[str, Any], tool_names: Any) -> ChatResponse:
         choice = (payload.get("choices") or [{}])[0]
         message = choice.get("message") or {}
         content = message.get("content") or ""

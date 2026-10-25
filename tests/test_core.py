@@ -117,3 +117,36 @@ def test_performance_metrics_in_summary():
     assert perf["completion_tokens_total"] == 50 and perf["truncated_rate"] == 0
     assert perf["text_recovered_rate"] == round(2 / 3, 4)
     assert perf["wall_seconds"] >= 0 and perf["seconds_p95"] is not None
+
+
+def test_code_style_call_recovery():
+    names = ["hold", "drive_in_zone", "drive_offline", "charge", "set_price"]
+    got = lambda t: [(c.name, c.arguments) for c in parse_text_tool_calls(t, names)]
+    assert got("hold") == [("hold", {})]
+    assert got("drive_offline()") == [("drive_offline", {})]
+    assert got("drive_in_zone(zone: 2)") == [("drive_in_zone", {"zone": 2})]
+    assert got("charge(amount=3)") == [("charge", {"amount": 3})]
+    assert got('drive_in_zone {"name": "driver_4", "arguments": {"zone": 0}}') == [("drive_in_zone", {"zone": 0})]
+    assert got('set_price(price="55")') == [("set_price", {"price": "55"})]
+    # Mentions in prose are not calls; malformed argument lists are skipped.
+    assert got("I think I should hold this round.") == []
+    assert got("I will call set_price soon") == []
+    assert got("drive_in_zone(2)") == []  # positional needs the schema
+    # JSON-form calls still take precedence.
+    assert got('{"name": "charge", "arguments": {"amount": 1}} charge(amount=9)') == [("charge", {"amount": 1})]
+
+
+def test_positional_and_object_recovery_with_schema():
+    req = {"hold": [], "drive_in_zone": ["zone"], "charge": ["amount"], "drive_offline": []}
+    got = lambda t: [(c.name, c.arguments) for c in parse_text_tool_calls(t, req)]
+    assert got("drive_in_zone(0)") == [("drive_in_zone", {"zone": 0})]
+    assert got("charge 5") == [("charge", {"amount": 5})]
+    assert got("charge 10 MWh") == [("charge", {"amount": 10})]
+    assert got('drive_in_zone{"zone": 0}') == [("drive_in_zone", {"zone": 0})]
+    assert got('drive_in_zone({"zone": 2})') == [("drive_in_zone", {"zone": 2})]
+    assert got("hold\n\nGrid day 1, block 5 ...") == [("hold", {})]
+    assert got("Hold") == [("hold", {})] and got("Charge") == []
+    # Echoed schemas and prose are still not calls.
+    assert got('drive_in_zone\n{\n "name": "drive_in_zone", "function": {"description": "x"}}') == []
+    assert got("I could charge the battery or hold.") == []
+    assert got("charge the battery") == []
