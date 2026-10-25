@@ -5,7 +5,10 @@
 #
 #   gpu: Modal GPU; shards: containers per model (seeds split across them)
 #   tool_parser / vllm_args: `vllm serve` flags; params: request body (sampling, chat_template_kwargs)
-#   Sampling follows each model card's recommendation; all reasoning models think by default.
+#   reasoning: whether the model thinks before answering in these runs (see docs/MODELS.md)
+#   sampling_source: where `params` sampling values come from
+#   Sampling follows each model card where it states a recommendation, so temperature and
+#   reasoning differ across models by design; docs/MODELS.md lists them and the caveats.
 # Reasoning models think ~2-7k tokens per response (check run 2026-10-25), so they get a
 # 16k output cap; with 2 shards and 80 games in flight a 5-seed run is bound by the
 # longest single game rather than GPU throughput.
@@ -21,13 +24,17 @@ models:
     hf_id: Qwen/Qwen3.5-4B
     tool_parser: qwen3_coder
     vllm_args: [--reasoning-parser, qwen3, --language-model-only]
-    params: {max_tokens: 16384, temperature: 0.7, top_p: 0.8}
+    reasoning: true
+    sampling_source: "model card, thinking mode for general tasks"
+    params: {max_tokens: 16384, temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
 
   - name: minicpm5-2b
     <<: *defaults
     hf_id: openbmb/MiniCPM5-2B
     tool_parser: minicpm5        # XML <function name=..><param ..> calls
     vllm_args: [--reasoning-parser, qwen3]
+    reasoning: true
+    sampling_source: "model card + generation_config.json"
     params: {max_tokens: 16384, temperature: 1.0, top_p: 0.95}
 
   - name: g9v3-3b
@@ -37,6 +44,8 @@ models:
     # likely a MiniCPM5 derivative, so the minicpm5 parser applies. Verify in the smoke run.
     tool_parser: minicpm5
     vllm_args: [--reasoning-parser, qwen3]
+    reasoning: true
+    sampling_source: "generation_config.json (card gives no recommendation)"
     params: {max_tokens: 16384, temperature: 0.9, top_p: 0.95}
 
   - name: k2-horizon-3.7b
@@ -45,6 +54,8 @@ models:
     tool_parser: k2_horizon
     vllm_args: [--trust-remote-code, --dtype, bfloat16, --reasoning-parser, k2_horizon]
     # Card recommends reasoning_effort=high with >=32k output tokens; medium + 16k keeps games tractable.
+    reasoning: true
+    sampling_source: "model card (reasoning_effort lowered from high to medium: our choice)"
     params: {max_tokens: 16384, temperature: 1.0, top_p: 0.95, chat_template_kwargs: {reasoning_effort: medium, tool_call_format: xml}}
 
   - name: granite-4.2-3b
@@ -52,6 +63,8 @@ models:
     hf_id: ibm-granite/granite-4.2-3b
     tool_parser: qwen3_coder
     vllm_args: [--dtype, bfloat16, --reasoning-parser, granite_thinking_parser]
+    reasoning: true
+    sampling_source: "model card (required for all modes)"
     params: {max_tokens: 16384, temperature: 1.0, top_p: 0.95}
 
   - name: phi-4-mini
@@ -60,6 +73,10 @@ models:
     shards: 1
     tool_parser: phi4_mini_json
     vllm_args: [--chat-template, /root/templates/tool_chat_template_phi4_mini.jinja]
+    reasoning: false
+    # Card shows temperature 0.0 only in code examples, no stated recommendation. 0.7 is our
+    # choice so seeds vary in model sampling as well as in the environment.
+    sampling_source: "our choice (card has no recommendation)"
     params: {max_tokens: 2048, temperature: 0.7}
 
   - name: nanbeige4.1-3b
@@ -67,6 +84,8 @@ models:
     hf_id: Nanbeige/Nanbeige4.1-3B         # Hermes-style <tool_call> JSON, <think> reasoning
     tool_parser: hermes
     vllm_args: [--reasoning-parser, qwen3]
+    reasoning: true
+    sampling_source: "model card"
     params: {max_tokens: 16384, temperature: 0.6, top_p: 0.95}
 
   - name: lfm2.5-2.6b
@@ -74,4 +93,6 @@ models:
     hf_id: LiquidAI/LFM2.5-2.6B            # always reasons; Pythonic calls in <|tool_call_start|>
     tool_parser: lfm2
     vllm_args: [--reasoning-parser, deepseek_r1]
-    params: {max_tokens: 16384, temperature: 0.7}
+    reasoning: true
+    sampling_source: "model card + generation_config.json"
+    params: {max_tokens: 16384, temperature: 0.1, top_k: 50, repetition_penalty: 1.1}

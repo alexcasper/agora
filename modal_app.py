@@ -13,6 +13,7 @@ secret holding HF_TOKEN; pass its name with AGORA_HF_SECRET.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -105,6 +106,10 @@ def sweep_model(model: dict, sweep: dict, tag: str, shard: int = 0, shards: int 
             "params": model.get("params", {"max_tokens": 2048, "temperature": 0.7}),
         }
         out = Path("/runs") / tag / model["name"]
+        out.mkdir(parents=True, exist_ok=True)
+        # Exact serving and sampling settings next to the results (temperature and
+        # reasoning mode differ across models by design; see docs/MODELS.md).
+        (out / "model.json").write_text(json.dumps({**model, "vllm_version": VLLM_VERSION, "cuda_image": CUDA_IMAGE}, indent=2))
         rows = run_sweep(sweep, llm, out, root=Path(REMOTE_ROOT), concurrency=model.get("game_concurrency"))
         return [{"model": model["name"], **r} for r in rows]
     finally:

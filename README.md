@@ -55,7 +55,9 @@ calls and results), `summary.json` and `config.yaml`.
 `modal_app.py` runs one vLLM server per container and many games against it.
 Models, GPUs, serve flags and sampling live in `sweeps/models.yaml`: Qwen3.5-4B,
 MiniCPM5-2B, G9v3-3B, K2-Horizon-3.7B, Granite-4.2-3B, Phi-4-mini, Nanbeige4.1-3B
-and LFM2.5-2.6B, all served by vLLM 0.31.0 with built-in tool parsers.
+and LFM2.5-2.6B, all served by vLLM 0.31.0 with built-in tool parsers. Sampling and
+reasoning mode follow each model card and differ across models: see
+[docs/MODELS.md](docs/MODELS.md) before comparing models.
 
 ```bash
 modal run modal_app.py --sweep sweeps/smoke.yaml --only minicpm5-2b,granite-4.2-3b
