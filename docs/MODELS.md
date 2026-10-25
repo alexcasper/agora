@@ -48,7 +48,16 @@ played with.
    parser misses. agora recovers them and reports
    `performance.text_recovered_rate`. A model that needs recovery has an
    easier-to-fail interface than one with native calls.
-5. **Related models.** G9v3-3B shares MiniCPM5's tokenizer, chat template and
+5. **Recovery-parser version differs between runs.** In `main-20261025` the six
+   reasoning models ran with JSON-only text recovery (they made native tool
+   calls in the check run, so recovery should rarely matter for them). Phi-4-mini's
+   games there missed 91% of GridStorage and 54% of RideHailing actions because it
+   writes calls as code (`hold`, `drive_in_zone(zone: 2)`, `charge 5`), so it was
+   rerun as `main-20261025-phi-r2` with code-style recovery (commit "Recover
+   code-style tool calls"). Use the r2 tag for Phi-4-mini. Before final analysis,
+   replay each reasoning model's no-call replies through the current parser
+   and rerun any model where it would recover a non-trivial share.
+6. **Related models.** G9v3-3B shares MiniCPM5's tokenizer, chat template and
    layer widths (52 vs 42 layers) and is probably a MiniCPM5 derivative. Do
    not count the two as independent observations of "small models".
 
