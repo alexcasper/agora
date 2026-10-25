@@ -1,0 +1,41 @@
+# Models for modal_app.py. Each runs in its own container(s) behind vLLM.
+#   gpu: Modal GPU spec; shards: containers per model (seeds split across them)
+#   tool_parser: vLLM --tool-call-parser; vllm_args: extra `vllm serve` flags
+#   params: sampling params sent by agora; game_concurrency: games in flight per container
+models:
+  - name: qwen3-8b
+    hf_id: Qwen/Qwen3-8B
+    gpu: L40S
+    shards: 1
+    tool_parser: hermes
+    vllm_args: [--reasoning-parser, qwen3]
+    max_model_len: 16384
+    params: {max_tokens: 4096, temperature: 0.7}
+    game_concurrency: 48
+
+  - name: qwen3-14b
+    hf_id: Qwen/Qwen3-14B
+    gpu: A100-80GB
+    tool_parser: hermes
+    vllm_args: [--reasoning-parser, qwen3]
+    params: {max_tokens: 4096, temperature: 0.7}
+    game_concurrency: 48
+
+  - name: qwen3-32b
+    hf_id: Qwen/Qwen3-32B
+    gpu: H100
+    tool_parser: hermes
+    vllm_args: [--reasoning-parser, qwen3]
+    params: {max_tokens: 4096, temperature: 0.7}
+    game_concurrency: 32
+
+  # Gated: needs a Modal secret with HF_TOKEN (export AGORA_HF_SECRET=<secret name>).
+  - name: llama-3.1-8b
+    hf_id: meta-llama/Llama-3.1-8B-Instruct
+    gpu: L40S
+    tool_parser: llama3_json
+    params: {max_tokens: 1024, temperature: 0.7}
+    game_concurrency: 48
+
+  # TODO before use: the paper's Qwen3.5-4B and Flint need their HF ids / gguf handling and
+  # a vLLM version that supports them (AGORA_VLLM_VERSION).

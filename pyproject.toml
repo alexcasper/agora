@@ -1,0 +1,22 @@
+[project]
+name = "agora"
+version = "0.1.0"
+description = "Self-contained LLM market-collusion benchmark: six repeated-market scenarios with analytic competitive and collusive benchmarks."
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+agora = "agora.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["agora*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

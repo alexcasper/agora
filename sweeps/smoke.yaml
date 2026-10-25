@@ -1,0 +1,13 @@
+# Tiny sweep: every scenario, two arms, two seeds. Use to validate an endpoint.
+configs:
+  - configs/price_war.yaml
+  - configs/auction_house.yaml
+  - configs/supply_chain.yaml
+  - configs/grid_storage.yaml
+  - configs/ride_hailing.yaml
+  - configs/ad_auction_gsp.yaml
+seeds: [0, 1]
+arms: [neutral, pair_prompt_private]
+game_concurrency: 8
+overrides:
+  horizon: {min_units: 2, continue_prob: 0.0, max_units: 2}
