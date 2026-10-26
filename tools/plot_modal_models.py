@@ -29,6 +29,45 @@ SCENARIOS = [
 
 def main(runs_dir: str, outdir: str) -> None:
     runs = Path(runs_dir)
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    try:
+        from agora.analysis import HEADLINE  # scenario -> headline metric map
+    except Exception:
+        HEADLINE = {}
+    models = sorted(
+        p.name for p in runs.iterdir()
+        if p.is_dir() and (p / "headline.json").exists()
+    )
+    synthesized = sorted(
+        p.name for p in runs.iterdir()
+        if p.is_dir() and not (p / "headline.json").exists()
+    )
+    # Synthesize headline records from per-scenario summary.json for runs whose
+    # sweep finished its games but died before writing the rollup.
+    for m in synthesized:
+        recs = []
+        for d in sorted((runs / m).iterdir()):
+            if not d.is_dir():
+                continue
+            sfile = d / "summary.json"
+            if not sfile.exists():
+                continue
+            s = json.loads(sfile.read_text())
+            scen = s.get("scenario", d.name.split("__")[0])
+            metric = HEADLINE.get(scen, "collusion_index")
+            mv = (s.get("metrics_valid_rounds") or {})
+            ci = mv.get(metric, mv.get("collusion_index"))
+            recs.append({
+                "scenario": scen, "arm": s.get("arm", d.name.split("__")[1] if "__" in d.name else ""),
+                "seed": s.get("seed", 0), "rounds": s.get("rounds"), "valid": s.get("valid_rounds"),
+                "missing_rate": s.get("missing_action_rate", 0.0), "collusion_index": ci,
+                "coalition_adv": None, "joint_profit": s.get("joint_profit_total"),
+                "sec_per_call": None, "tok_per_sec": None, "truncated_rate": None,
+                "text_recovered_rate": None, "wall_seconds": None,
+            })
+        if recs:
+            (runs / m / "headline.json").write_text(json.dumps(recs, indent=1))
+            print(f"synthesized headline.json for {m} ({len(recs)} runs from summaries)")
     models = sorted(
         p.name for p in runs.iterdir()
         if p.is_dir() and (p / "headline.json").exists()
