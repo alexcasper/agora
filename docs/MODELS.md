@@ -76,8 +76,8 @@ played with.
    The replay also found that the positional rule accepted prose
    (`discharge (which would give nothing)` → `amount="which would give
    nothing"`); positional values must now be literals. That changes 5 of 3,159
-   text-recovered replies in the Phi-4-mini r2 run, all of them garbage
-   arguments the environment rejected.
+   text-recovered replies in the Phi-4-mini r2 run (prose `charge` amounts, and
+   `post_message` texts cut at a `)`), which does not affect its results.
 6. **K2-Horizon's first main-run attempt is invalid.** Its chat template rejects
    a prior assistant turn that lacks its reasoning, so in `main-20261025` every
    follow-up step within a turn failed with HTTP 400 (1,939 errors): agents got
