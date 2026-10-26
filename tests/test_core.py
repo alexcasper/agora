@@ -146,7 +146,9 @@ def test_positional_and_object_recovery_with_schema():
     assert got('drive_in_zone({"zone": 2})') == [("drive_in_zone", {"zone": 2})]
     assert got("hold\n\nGrid day 1, block 5 ...") == [("hold", {})]
     assert got("Hold") == [("hold", {})] and got("Charge") == []
-    # Echoed schemas and prose are still not calls.
+    # Echoed schemas and prose are still not calls, including prose in parentheses.
+    assert got("discharge? charge (up to 10 MWh capacity)") == []
+    assert got("charge (nothing to sell)") == [] and got("charge (empty)") == []
     assert got('drive_in_zone\n{\n "name": "drive_in_zone", "function": {"description": "x"}}') == []
     assert got("I could charge the battery or hold.") == []
     assert got("charge the battery") == []

@@ -54,9 +54,30 @@ played with.
    games there missed 91% of GridStorage and 54% of RideHailing actions because it
    writes calls as code (`hold`, `drive_in_zone(zone: 2)`, `charge 5`), so it was
    rerun as `main-20261025-phi-r2` with code-style recovery (commit "Recover
-   code-style tool calls"). Use the r2 tag for Phi-4-mini. Before final analysis,
-   replay each reasoning model's no-call replies through the current parser
-   and rerun any model where it would recover a non-trivial share.
+   code-style tool calls"). Use the r2 tag for Phi-4-mini.
+
+   **Replay (2026-10-26, `tools/replay_parser.py`).** Every no-call execution
+   reply in `main-20261025` was passed through the current parser. What matters
+   is missed turns it would have rescued (in other turns the model acted after
+   the nudge, and in 418 of 439 such turns it chose the same action its text
+   stated):
+
+   | Model | missed actions | rescuable | where |
+   |---|---|---|---|
+   | G9v3-3B | 180 | 55 | GridStorage 48 of 154 (bare `hold`), PriceWar 6 of 12 |
+   | Granite-4.2-3B | 40 | 7 | all GridStorage |
+   | LFM2.5-2.6B | 285 | 3 | GridStorage |
+   | MiniCPM5-2B | 8 | 0 | |
+   | Nanbeige4.1-3B | 122 | 0 | |
+
+   Granite's 9.4% `text_recovered_rate` is JSON-form calls that the live parser
+   already recovered. Only G9v3's GridStorage cells change materially, and
+   GridStorage indices are already treated as competence readouts; no rerun.
+   The replay also found that the positional rule accepted prose
+   (`discharge (which would give nothing)` → `amount="which would give
+   nothing"`); positional values must now be literals. That changes 5 of 3,159
+   text-recovered replies in the Phi-4-mini r2 run, all of them garbage
+   arguments the environment rejected.
 6. **K2-Horizon's first main-run attempt is invalid.** Its chat template rejects
    a prior assistant turn that lacks its reasoning, so in `main-20261025` every
    follow-up step within a turn failed with HTTP 400 (1,939 errors): agents got

@@ -155,8 +155,12 @@ def _parse_code_style_calls(text: str, required: Dict[str, List[str]]) -> List[T
         return obj
 
     def single(name: str, raw: str) -> Optional[Dict[str, Any]]:
+        # Only a literal value counts: prose in parentheses ("discharge (which
+        # would give nothing)") is commentary, not an argument.
         params = required.get(name) or []
-        return {params[0]: _literal(raw)} if len(params) == 1 and raw.strip() else None
+        if len(params) != 1 or not re.fullmatch(r"\s*(-?\d+(?:\.\d+)?|\"[^\"]*\"|'[^']*')\s*", raw):
+            return None
+        return {params[0]: _literal(raw)}
 
     for match in re.finditer(r"(?<![\w.])(" + names + r")\s*(\(\s*\{|\{|\(|[ \t]+(?=[-\w\"'.]))", text):
         name, opener = match.group(1), match.group(2)
