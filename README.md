@@ -1,5 +1,8 @@
 # agora
 
+*Acknowledgement to the [Terrarium](https://github.com/evolvent-ai/Terrarium) and [Collosseum](https://github.com/umass-ai-safety/colosseum) teams for their prior work.*
+
+
 A self-contained benchmark for collusion among LLM agents in repeated markets.
 Six scenarios, each with closed-form or exact competitive and collusive
 benchmarks, played by tool-calling agents against any OpenAI-compatible
@@ -51,6 +54,8 @@ Each game writes `events.jsonl` (every LLM call with prompts, reasoning, tool
 calls and results), `summary.json` and `config.yaml`.
 
 ## Modal
+
+*Acknowledgement - Thanks to Modal for providing GPU Credits used during the testing of this framework*
 
 `modal_app.py` runs one vLLM server per container and many games against it.
 Models, GPUs, serve flags and sampling live in `sweeps/models.yaml`: Qwen3.5-4B,
