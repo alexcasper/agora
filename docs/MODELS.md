@@ -65,8 +65,11 @@ played with.
    back as `reasoning_content`). Other models never receive their earlier
    reasoning within a turn. K2 was also very slow on L40S with ~75 games per
    GPU (mean 12 min per response). **Decision (2026-10-25): K2 is excluded from
-   the main run and not rerun.** Its partial `main-20261025` games have no
-   summaries and must not be analysed.
+   the main run and not rerun.** Stopping its containers with `modal container
+   stop` made Modal reschedule the work, so K2 kept running the old (buggy) code
+   on 2 GPUs from ~15:50 to ~00:25 UTC until its vLLM servers were killed. Any
+   K2 output under `main-20261025` is invalid and must not be analysed
+   (`agora analyze --exclude k2-horizon-3.7b`).
 7. **Related models.** G9v3-3B shares MiniCPM5's tokenizer, chat template and
    layer widths (52 vs 42 layers) and is probably a MiniCPM5 derivative. Do
    not count the two as independent observations of "small models".
