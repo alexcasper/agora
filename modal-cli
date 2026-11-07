@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# agora Modal CLI wrapper. Always use this instead of the raw modal binary:
+# the raw import crashes because Hermes 3.14 site-packages leak into the venv
+# via PYTHONPATH; this unsets it (alex 2026-11-06).
+exec env -u PYTHONPATH "$(dirname "$0")/.venv/bin/modal" "$@"

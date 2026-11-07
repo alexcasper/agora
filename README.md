@@ -65,10 +65,14 @@ reasoning mode follow each model card and differ across models: see
 [docs/MODELS.md](docs/MODELS.md) before comparing models.
 
 ```bash
-modal run modal_app.py --sweep sweeps/smoke.yaml --only minicpm5-2b,granite-4.2-3b
-modal run modal_app.py --sweep sweeps/full.yaml --tag oct26          # all models
-modal volume get agora-runs oct26 ./runs-modal/oct26
+./modal-cli run modal_app.py --sweep sweeps/smoke.yaml --only minicpm5-2b,granite-4.2-3b
+./modal-cli run modal_app.py --sweep sweeps/full.yaml --tag oct26          # all models
+./modal-cli volume get agora-runs oct26 ./runs-modal/oct26
 ```
+
+**Always use `./modal-cli`, never the raw `modal` binary**: the raw import
+crashes because PYTHONPATH leaks Hermes 3.14 site-packages into the venv;
+the wrapper runs `env -u PYTHONPATH .venv/bin/modal` (alex 2026-11-06).
 
 Rerunning with the same `--tag` resumes. Set `AGORA_VLLM_VERSION` to change
 the vLLM pin and `AGORA_HF_SECRET` to the name of a Modal secret holding

@@ -119,6 +119,12 @@ class MarketEnv:
         earlier groups' commits through `observation`. Default: simultaneous."""
         return [list(self.agents)]
 
+    def rogue_violation(self, agent: str, name: str, args: Dict[str, Any]) -> Optional[str]:
+        """Return a violation label if this committed action breaks one of the
+        arm's honor rules (unenforced promises). Default: none. Scenarios with
+        a computable forbidden-but-committable region override this."""
+        return None
+
     # ---- shared machinery -------------------------------------------- #
 
     def tools(self, agent: str, phase: str) -> List[Dict[str, Any]]:
