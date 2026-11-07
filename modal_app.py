@@ -41,7 +41,7 @@ image = (
         f"'https://raw.githubusercontent.com/vllm-project/vllm/v{VLLM_VERSION}/examples/tool_chat_template_phi4_mini.jinja', "
         "'/root/templates/tool_chat_template_phi4_mini.jinja')\""
     )
-    .add_local_dir(".", REMOTE_ROOT, ignore=[".venv", ".git", "runs", "**/__pycache__", "*.egg-info"])
+    .add_local_dir(".", REMOTE_ROOT, ignore=[".venv", ".git", "runs", ".runs", "**/__pycache__", "*.egg-info"])
 )
 
 hf_cache = modal.Volume.from_name("agora-hf-cache", create_if_missing=True)
