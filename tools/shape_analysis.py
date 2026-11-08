@@ -32,7 +32,7 @@ from agora.graphs import features_from_edges  # noqa: E402
 
 EXPECTED_GAMES = 114
 MAX_MISSING = 0.10
-ARM_RE = re.compile(r"^n(?P<n>\d+)_g(?P<g>\d+)_(?P<kind>[a-z]+)_(?P<arm>clean|rogue)$")
+ARM_RE = re.compile(r"^n(?P<n>\d+)_g(?P<g>\d+)_(?P<kind>[a-z0-9_.]+?)_(?P<arm>clean|rogue)$")
 FEATURES = ["density", "degree_var", "clustering", "diameter", "max_degree"]
 
 
